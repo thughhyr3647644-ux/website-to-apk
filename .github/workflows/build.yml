@@ -11,21 +11,27 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build APK via Docker
+      - name: Setup Android Tools & Apktool
         run: |
-          # 1. 赋予执行权限
+          # 1. 启用 GitHub 预装的最新 Android build-tools (包含 aapt, zipalign, apksigner)
+          LATEST_BUILD_TOOLS=$(ls -d /usr/local/lib/android/sdk/build-tools/* | sort -V | tail -n 1)
+          echo "$LATEST_BUILD_TOOLS" >> $GITHUB_PATH
+
+          # 2. 安装 apktool 依赖脚本与核心 jar
+          sudo wget -q https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -O /usr/local/bin/apktool
+          sudo wget -q https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.9.3.jar -O /usr/local/bin/apktool.jar
+          sudo chmod +x /usr/local/bin/apktool /usr/local/bin/apktool.jar
+
+      - name: Execute Build Script
+        run: |
           chmod +x build.sh
-          
-          # 2. 构建项目自带的 Docker 打包镜像（内置完整 aapt/apktool 环境）
-          docker build -t website-to-apk .
-          
-          # 3. 运行容器打包 moxy.sx
-          docker run --rm -v "${{ github.workspace }}:/app" -w /app website-to-apk ./build.sh "https://moxy.sx"
+          # 执行打包并传入参数
+          ./build.sh -n "MoxyTV" "https://moxy.sx" || ./build.sh "https://moxy.sx"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MoxyTV-Release-APK
+          name: MoxyTV-APK
           path: |
             *.apk
             **/*.apk
